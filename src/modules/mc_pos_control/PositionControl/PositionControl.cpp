@@ -127,7 +127,23 @@ bool PositionControl::update(const float dt)
 void PositionControl::_positionControl()
 {
 	// P-position controller
-	Vector3f vel_sp_position = (_pos_sp - _pos).emult(_gain_pos_p);
+	Vector3f pos_error = _pos_sp - _pos;
+
+	// Deadband the vertical position error so small altitude deviations don't
+	// demand vertical thrust (only applied when z is actually controlled, i.e. finite)
+	if (PX4_ISFINITE(pos_error(2)) && _lim_pos_error_deadband_z > FLT_EPSILON) {
+		if (pos_error(2) > _lim_pos_error_deadband_z) {
+			pos_error(2) -= _lim_pos_error_deadband_z;
+
+		} else if (pos_error(2) < -_lim_pos_error_deadband_z) {
+			pos_error(2) += _lim_pos_error_deadband_z;
+
+		} else {
+			pos_error(2) = 0.f;
+		}
+	}
+
+	Vector3f vel_sp_position = pos_error.emult(_gain_pos_p);
 	// Position and feed-forward velocity setpoints or position states being NAN results in them not having an influence
 	ControlMath::addIfNotNanVector3f(_vel_sp, vel_sp_position);
 	// make sure there are no NAN elements for further reference while constraining
@@ -218,8 +234,10 @@ void PositionControl::_accelerationControl()
 	ControlMath::limitTilt(body_z, Vector3f(0, 0, 1), _lim_tilt);
 	// Convert to thrust assuming hover thrust produces standard gravity
 	const float thrust_ned_z = _acc_sp(2) * (_hover_thrust / CONSTANTS_ONE_G) - _hover_thrust;
-	// Project thrust to planned body attitude
-	const float cos_ned_body = (Vector3f(0, 0, 1).dot(body_z));
+	// Project thrust to planned body attitude, flooring cos(tilt) so the 1/cos(tilt)
+	// boost required to hold vertical thrust at high tilt angles can't diverge
+	// (_lim_tilt_cos_min == 0 disables the floor and keeps the original behavior)
+	const float cos_ned_body = math::max((Vector3f(0, 0, 1).dot(body_z)), _lim_tilt_cos_min);
 	const float collective_thrust = math::min(thrust_ned_z / cos_ned_body, -_lim_thr_min);
 	_thr_sp = body_z * collective_thrust;
 }

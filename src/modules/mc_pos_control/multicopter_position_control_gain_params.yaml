@@ -12,6 +12,21 @@ parameters:
       max: 1.5
       decimal: 2
       increment: 0.1
+    MPC_Z_ERR_DZ:
+      description:
+        short: Vertical position error deadband
+        long: |-
+          Vertical position error smaller than this is ignored by the position
+          P-controller, reducing how aggressively it demands vertical thrust for
+          minor altitude sag/overshoot (e.g. during a deliberate high speed dash).
+          A value of 0 disables the deadband (previous behavior).
+      type: float
+      default: 0.0
+      unit: m
+      min: 0
+      max: 5
+      decimal: 1
+      increment: 0.1
     MPC_XY_P:
       description:
         short: Proportional gain for horizontal position error
