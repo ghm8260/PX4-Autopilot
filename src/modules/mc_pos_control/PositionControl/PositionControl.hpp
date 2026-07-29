@@ -121,6 +121,22 @@ public:
 	void setTiltLimit(const float tilt) { _lim_tilt = tilt; }
 
 	/**
+	 * Set a floor on cos(tilt) used when converting a vertical acceleration setpoint
+	 * into collective thrust, bounding how much the tilt-induced 1/cos(tilt) boost
+	 * can inflate the required collective thrust at high tilt angles.
+	 * @param cos_min floor value in [0,1); 0 disables the cap (default, unchanged behavior)
+	 */
+	void setTiltCosMin(const float cos_min) { _lim_tilt_cos_min = cos_min; }
+
+	/**
+	 * Set a deadband on the vertical position error so small altitude deviations
+	 * are ignored by the position P-controller, reducing how aggressively it
+	 * demands vertical thrust for minor altitude sag/overshoot.
+	 * @param deadband_z deadband in meters; 0 disables it (default, unchanged behavior)
+	 */
+	void setZErrorDeadband(const float deadband_z) { _lim_pos_error_deadband_z = deadband_z; }
+
+	/**
 	 * Set the normalized hover thrust
 	 * @param hover_thrust [HOVER_THRUST_MIN, HOVER_THRUST_MAX] with which the vehicle hovers not accelerating down or up with level orientation
 	 */
@@ -215,6 +231,8 @@ private:
 	float _lim_thr_max{}; ///< Maximum collective thrust allowed as output [-1,0] e.g. -0.1
 	float _lim_thr_xy_margin{}; ///< Margin to keep for horizontal control when saturating prioritized vertical thrust
 	float _lim_tilt{}; ///< Maximum tilt from level the output attitude is allowed to have
+	float _lim_tilt_cos_min{}; ///< Floor on cos(tilt) used in the collective thrust computation; 0 disables the cap
+	float _lim_pos_error_deadband_z{}; ///< Deadband on vertical position error before the position P-controller; 0 disables it
 
 	float _hover_thrust{}; ///< Thrust [HOVER_THRUST_MIN, HOVER_THRUST_MAX] with which the vehicle hovers not accelerating down or up with level orientation
 	bool _decouple_horizontal_and_vertical_acceleration{true}; ///< Ignore vertical acceleration setpoint to remove its effect on the tilt setpoint

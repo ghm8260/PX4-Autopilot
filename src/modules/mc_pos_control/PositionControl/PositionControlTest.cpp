@@ -403,6 +403,57 @@ TEST_F(PositionControlBasicTest, UpdateHoverThrust)
 	EXPECT_EQ(_output_setpoint.thrust[2], -hover_thrust);
 }
 
+TEST_F(PositionControlBasicTest, TiltCosMinBoundsCollectiveThrust)
+{
+	// Use a very high thrust ceiling and no horizontal margin so the downstream
+	// Z-priority saturation never binds, isolating the effect of the cos(tilt) floor.
+	_position_control.setThrustLimits(0.1f, 100.f);
+	_position_control.setHorizontalThrustMargin(0.f);
+	_position_control.setTiltLimit(1.55f); // ~88.8 deg, does not constrain here
+
+	// Command hover (no extra vertical acceleration) with a very large horizontal
+	// acceleration so the resulting tilt approaches 90 deg.
+	Vector3f(0.f, 0.f, 0.f).copyTo(_input_setpoint.velocity);
+	_input_setpoint.acceleration[0] = 200.f;
+	_input_setpoint.acceleration[1] = 0.f;
+
+	// GIVEN no cos(tilt) floor (default, unchanged behavior)
+	EXPECT_TRUE(runController());
+	const Vector3f thrust_uncapped(_output_setpoint.thrust);
+	// THEN the collective thrust explodes far beyond the hover thrust
+	EXPECT_GT(thrust_uncapped.length(), 5.f);
+
+	// WHEN a cos(tilt) floor of 0.2 is set (bounds the boost to at most 1/0.2 = 5x)
+	_position_control.setTiltCosMin(0.2f);
+	EXPECT_TRUE(runController());
+	const Vector3f thrust_capped(_output_setpoint.thrust);
+
+	// THEN the collective thrust magnitude is bounded to hover_thrust / cos_min
+	EXPECT_NEAR(thrust_capped.length(), .5f / .2f, 1e-3f);
+	EXPECT_LT(thrust_capped.length(), thrust_uncapped.length());
+}
+
+TEST_F(PositionControlBasicTest, ZErrorDeadband)
+{
+	_position_control.setZErrorDeadband(.5f);
+
+	// GIVEN x/y are controlled by velocity so only the z position error is exercised
+	_input_setpoint.velocity[0] = 0.f;
+	_input_setpoint.velocity[1] = 0.f;
+
+	// GIVEN a z position error smaller than the deadband
+	_input_setpoint.position[2] = .3f;
+	EXPECT_TRUE(runController());
+	// THEN the position P-controller produces no velocity setpoint contribution
+	EXPECT_FLOAT_EQ(_output_setpoint.vz, 0.f);
+
+	// WHEN the z position error exceeds the deadband
+	_input_setpoint.position[2] = 1.f;
+	EXPECT_TRUE(runController());
+	// THEN only the error beyond the deadband drives the velocity setpoint (gain 1.0)
+	EXPECT_NEAR(_output_setpoint.vz, .5f, 1e-4f);
+}
+
 TEST_F(PositionControlBasicTest, IntegratorWindupWithInvalidSetpoint)
 {
 	// GIVEN: the controller was ran with an invalid setpoint containing some valid values

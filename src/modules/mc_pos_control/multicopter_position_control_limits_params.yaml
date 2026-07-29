@@ -58,6 +58,22 @@ parameters:
       max: 89
       decimal: 0
       increment: 1
+    MPC_Z_TILT_COS_MIN:
+      description:
+        short: Minimum cos(tilt) used for collective thrust computation
+        long: |-
+          Floors cos(tilt) before it is used to convert a vertical acceleration
+          setpoint into collective thrust, bounding how much the tilt-induced
+          1/cos(tilt) term can inflate the required thrust at high tilt angles.
+          A value of 0 disables the floor (unbounded boost, previous behavior).
+          Only takes effect once tilt exceeds acos(value).
+      type: float
+      default: 0.0
+      unit: norm
+      min: 0
+      max: 0.9
+      decimal: 2
+      increment: 0.05
     MPC_TILTMAX_LND:
       description:
         short: Maximum tilt during inital takeoff ramp
