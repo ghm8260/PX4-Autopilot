@@ -127,4 +127,5 @@ px4_add_romfs_files(
 	70001_gz_atmos_dual
 
 	# [22000, 22999] Reserve for custom models
+	22003_gz_T022
 )
